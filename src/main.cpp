@@ -418,20 +418,20 @@ void setMotors(){
   //RA axis
   stepperRA.enableOutputs();
   stepperRA.setCurrentPosition(0);
-  stepperRA.setMaxSpeed(5000);     // Set Max Speed of Stepper (Faster for regular movements)
-  stepperRA.setAcceleration(10000.0); // Set Acceleration of Stepper
+  stepperRA.setMaxSpeed(RA_MAX_SPEED);     // Set Max Speed of Stepper (Faster for regular movements)
+  stepperRA.setAcceleration(RA_MAX_ACCELERATION); // Set Acceleration of Stepper
 
   //DEC axis
   stepperDEC.enableOutputs();
   stepperDEC.setCurrentPosition(0);
-  stepperDEC.setMaxSpeed(5000);     // Set Max Speed of Stepper (Faster for regular movements)
-  stepperDEC.setAcceleration(10000.0); // Set Acceleration of Stepper
+  stepperDEC.setMaxSpeed(DEC_MAX_SPEED);     // Set Max Speed of Stepper (Faster for regular movements)
+  stepperDEC.setAcceleration(DEC_MAX_ACCELERATION); // Set Acceleration of Stepper
 
   //FOCUS axis
   stepperFOCUS.enableOutputs();
   stepperFOCUS.setCurrentPosition(0);
-  stepperFOCUS.setMaxSpeed(5000);     // Set Max Speed of Stepper (Faster for regular movements)
-  stepperFOCUS.setAcceleration(10000.0); // Set Acceleration of Stepper
+  stepperFOCUS.setMaxSpeed(FOCUS_MAX_SPEED);     // Set Max Speed of Stepper (Faster for regular movements)
+  stepperFOCUS.setAcceleration(FOCUS_MAX_ACCELERATION); // Set Acceleration of Stepper
 
   //Timer1.start();
 }
