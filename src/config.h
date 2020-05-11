@@ -62,13 +62,13 @@
 #define CHARACTERISTIC_UUID "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 
 
-#define RA_MAX_SPEED = 5000;     // Set Max Speed of Stepper (Faster for regular movements)
-#define RA_MAX_ACCELERATION = 10000; // Set Acceleration of Stepper
+#define RA_MAX_SPEED  5000     // Set Max Speed of Stepper (Faster for regular movements)
+#define RA_MAX_ACCELERATION  10000 // Set Acceleration of Stepper
 
 
-#define DEC_MAX_SPEED = 5000;     // Set Max Speed of Stepper (Faster for regular movements)
-#define DEC_MAX_ACCELERATION = 10000; // Set Acceleration of Stepper
+#define DEC_MAX_SPEED  5000     // Set Max Speed of Stepper (Faster for regular movements)
+#define DEC_MAX_ACCELERATION  10000 // Set Acceleration of Stepper
 
 //FOCUS axis
-#define FOCUS_MAX_SPEED = 5000;     // Set Max Speed of Stepper (Faster for regular movements)
-#define FOCUS_MAX_ACCELERATION = 10000; // Set Acceleration of Stepper
+#define FOCUS_MAX_SPEED  5000     // Set Max Speed of Stepper (Faster for regular movements)
+#define FOCUS_MAX_ACCELERATION  10000 // Set Acceleration of Stepper
