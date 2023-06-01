@@ -52,7 +52,41 @@ String MountStatus::getLTString(){
 
 
     };
+String MountStatus::getDATEString(){
 
+        String time="";
+        time+=String(LT.year);
+        time+="/";
+        time+=String(LT.month);
+        time+="/";
+        time+=String(LT.day);
+
+        return time;
+
+    };
+
+String MountStatus::getLATString(){
+
+        String loc="";
+        loc+=String(currentLat,9);
+        return loc;
+
+    };
+String MountStatus::getLONString(){
+
+        String loc="";
+        loc+=String(currentLong,9);
+        return loc;
+
+    };
+String MountStatus::getALTString(){
+
+        String loc="";
+        loc+=String(currentAlt);
+        loc+=" meters";
+        return loc;
+
+    };
 
     String ObservingObject::getObjectRAString(){
             String ra;
@@ -96,3 +130,4 @@ String MountStatus::getLTString(){
             return dec;
 
     };
+

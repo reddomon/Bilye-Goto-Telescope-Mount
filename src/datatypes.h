@@ -61,6 +61,7 @@ private:
 public:
     //gettable and settable
     int mountTrackingType = tracking; //enum
+    int isTracking = 0;
     bool objectFound = false;
 
     //current coordinates
@@ -85,6 +86,10 @@ public:
     String getLTString();
     String getGMSTString();
     String getLMSTString();
+    String getDATEString();
+    String getLATString();
+    String getLONString();
+    String getALTString();
 
 
 
@@ -100,6 +105,8 @@ private:
    
 
 public:
+    long rowid;
+    int code = 0;
     String name = "";
     int type = 0;  //star, nebula, planetary nebula, planet, Sun vs
     double objRA = 0;
@@ -109,7 +116,7 @@ public:
     String sign = "";  //constallation  
     String catalog = "";  //messsier, ngc
     String information = ""; 
-    int code = 0;
+    
 public:
     //not necessary right now.
     void parseObject();

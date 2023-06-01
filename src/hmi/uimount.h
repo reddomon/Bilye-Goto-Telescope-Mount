@@ -55,7 +55,12 @@ class UImount
 									 const char* gmt,
 									 const char* lt,
 									 const char*gmst,
-									 const char* lmst);//,const char* lha,const char* mountStatus,const char * gmt,
+									 const char* lmst,
+									 const char* ldate,
+									 const char* lat,
+									 const char*lon,
+									 const char *alt,
+									 int trackingtype);//,const char* lha,const char* mountStatus,const char * gmt,
 										//const char* lt,const char*gmst,const char* lmst);
 
 					//objectLHA.setText(lha);
@@ -137,7 +142,7 @@ private:
 	NexText mountAlt = NexText(2,13,"alt");
 
 	//status
-	NexText tracktype = NexText(2,20,"tracktype");
+	NexVariable tracktype = NexVariable(2,30,"track");
 	//lat, lon alt,
 
 

@@ -26,7 +26,7 @@ bool stringStart = true;
 
 QueueArray inputQueue;
 
-#define LCD_UPDATE_INTERVAL  500
+#define LCD_UPDATE_INTERVAL  1000
 
 unsigned int ms = 0;
 
@@ -444,10 +444,16 @@ void onIdle()
 													mountstatus.getGMTString().c_str(),
 													mountstatus.getLTString().c_str(),
 													mountstatus.getGMSTString().c_str(),
-													mountstatus.getLMSTString().c_str()
+													mountstatus.getLMSTString().c_str(),
+													mountstatus.getDATEString().c_str(),
+													mountstatus.getLATString().c_str(),
+													mountstatus.getLONString().c_str(),
+													mountstatus.getALTString().c_str(),
+													mountstatus.mountTrackingType
 													
 													
 													);
+
 
 				break;
 			case 3: //alignment

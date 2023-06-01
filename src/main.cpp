@@ -13,6 +13,9 @@
 #include <Update.h>
 #include <time.h>
 #include <sys/time.h>
+#include <esp_pthread.h> //multi thrading
+#include <thread>
+
 
 #include "FS.h"
 #include "SD.h"
@@ -41,8 +44,8 @@
 #include "userinterfaceapi.h"
 
 //date time class
+#include "Time.h"
 #include "ESPDateTime.h"
-
 //configurations
 #include "config.h"
 
@@ -54,7 +57,7 @@
 
 
 
-//mechanical error ignored for calculation like backlash etc
+//mechanical errors ignored for calculation like backlash etc
 double RA_MAX_STEPS = RA_STEP*RA_DRIVER_USTEP*RA_GEAR_RATIO;
 double DEC_MAX_STEPS = DEC_STEP*DEC_DRIVER_USTEP*DEC_GEAR_RATIO;
 
@@ -70,7 +73,7 @@ double errorDECvalue=0,errorRAvalue=0;
 //current values, info values
 double currRA_H, currRA_M, currRA_S, currDEC_D, currDEC_M, currDEC_S; 
 
-//timer clocks for biggest axis from rduionscope is not used
+//timer clocks for biggest axis from rDuionscope is not used
 int Clock_Sidereal = 500000/(DEC_MAX_STEPS/RA_REV);
 int Clock_Solar = 500000/(DEC_MAX_STEPS/(RA_REV-235.9095));
 int Clock_Lunar = 500000/(DEC_MAX_STEPS/(RA_REV-2089.2292));
@@ -86,11 +89,21 @@ ObservingObject observingobject;
 //bluetooth object
 BluetoothSerial SerialBT;
 
+
+//stepper  runner
+void runner(void * pvParameters);
+
 //timer
 hw_timer_t * timer = NULL;
+
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 
+//motor runner thread
+TaskHandle_t RunnerTask;
+
+//object list from database
+std::vector<ObservingObject> objectList;
 
 
 //AccelStepper Setup
@@ -124,6 +137,8 @@ QueueArray arrayBuffer;
 //database
 sqlite3 *starsDb;
 
+//pulser prism
+void calculatePrisms(void);
 
 char buffer[MAX_BUF]; // where we store the message until we get a newline
 char buffer2[MAX_BUF]; // where we store the message until we get a newline
@@ -136,8 +151,6 @@ TinyGPSPlus gps;
 Algorithms algorithms = Algorithms();
 
 
-//stepper  runner
-void runner();
 
 
 //simple csv lib from https://github.com/gsb/CSV2Strings thanks to gsb
@@ -167,9 +180,11 @@ int totalInterruptCounter;
 void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
   interruptCounter++;
+  calculatePrisms();
   portEXIT_CRITICAL_ISR(&timerMux);
  
 }
+
 
 // i dont have any idea what isgoing on here just copy and modify some part of it
 // gettin ms
@@ -184,14 +199,14 @@ int64_t xx_time_get_time() {
 void printLocalTime()
 {
   
-  Serial.println(DateTime.now());
-  Serial.println(DateTime.getTime());
-  Serial.println(DateTime.utcTime());
-  Serial.println("--------------------");
-  Serial.println(DateTime.toString());
-  Serial.println(DateTime.toISOString());
-  Serial.println(DateTime.toUTCString());
-  Serial.println("--------------------");
+ // Serial.println(DateTime.now());
+  //Serial.println(DateTime.getTime());
+  //Serial.println(DateTime.utcTime());
+ // Serial.println("--------------------");
+  //Serial.println(DateTime.toString());
+ // Serial.println(DateTime.toISOString());
+ // Serial.println(DateTime.toUTCString());
+ // Serial.println("--------------------");
    
 }
 
@@ -356,7 +371,7 @@ void processCommand(char *line)
     Serial.println(String(gotoRAvalue,8).c_str());
     break;
   case 28:
-
+     mountstatus.isTracking = stopped; 
     break;
   case 29:
 
@@ -388,26 +403,40 @@ case 101:
     //goto observing object
     gotoRAvalue = observingobject.objRA;
     gotoDECvalue = observingobject.objDEC;
-    observingobject.code = Stellar;
-    mountstatus.mountTrackingType = tracking;
+    //observingobject.code = Stellar;
+    mountstatus.isTracking = true;
     break;
     }
   //-----------------------------
   case 200:
     observingobject.code = parseNumberInt('S', line);
+    mountstatus.isTracking = true;
 
     break;
  case 201: 
-
+    break;
+  
  case 300:{
-      String devDv = "SELECT ROWID,name,ra,dec FROM dso WHERE ROWID>" +String(parseNumberInt('S', line))+ " LIMIT 10";  
+      String devDv = "SELECT ROWID,name,ra,dec FROM dso WHERE ROWID>" +String(parseNumberInt('S', line) * 9)+ " LIMIT 9";  
       db_exec(starsDb,devDv.c_str());  
 
-      break;}
+      break;
+      }
+  case 301:{
+      //first if any open database present destruct it
+      closeDb(starsDb);
+
+      //then open database
+      if (openDb("/sd/stars.db", &starsDb)){
+
+      Serial.println("Echo: Database open error");
+          }
+      }
   default:
       Serial.println("Echo: Unsupported Code Format"); //errous code
     break;
   }
+  
 }
 
 
@@ -463,6 +492,7 @@ void gatherGPSData()
 
   if (gps.time.isValid())
   {
+
     mountstatus.currentHour = gps.time.hour();
     mountstatus.currentMinute = gps.time.minute();
     mountstatus.currentSecond = gps.time.second();
@@ -471,17 +501,38 @@ void gatherGPSData()
     mountstatus.GT.rawtime = (double)mountstatus.currentHour + (double)mountstatus.currentMinute/60 +(double)mountstatus.currentSecond/3600;
 
     //set current time via gps rtc
-    DateTime.setTime(gps.time.value()/100);
 
-    //set timezone
+    //Serial.println(DateTime.getTime());
+    time_t t_of_day; 
+    struct tm t;   
+    t.tm_year = gps.date.year()-1900;
+    t.tm_mon = gps.date.month()-1;           // Month, 0 - jan
+    t.tm_mday = gps.date.day();          // Day of the month
+    t.tm_hour = gps.time.hour();
+    t.tm_min =  gps.time.minute();
+    t.tm_sec = gps.time.second();
+    t_of_day = mktime(&t);
+    t_of_day += mountstatus.GMT*60*60;
     DateTime.setTimeZone(mountstatus.GMT);
+    DateTime.setTime(t_of_day);
+    
+    
+    //set timezone
+    //DateTime.setTimeZone(mountstatus.GMT);
 
     //get localtime parts
     DateTimeParts DTP = DateTime.getParts();
     //set localtime
-    mountstatus.LT.hour = 12;
+    
+  
+    mountstatus.LT.hour = DTP.getHours();
     mountstatus.LT.minute = DTP.getMinutes();
     mountstatus.LT.second = DTP.getSeconds();
+    mountstatus.LT.year = DTP.getYear();
+    mountstatus.LT.month = DTP.getMonth() + 1;
+    mountstatus.LT.day = DTP.getMonthDay();
+
+
 
     
   }
@@ -497,7 +548,7 @@ void setup()
   //delay(5000);
   Serial.begin(115200); //konsol için gerekli pin ataması yapılmalı
   Serial1.begin(9600,134217756U,22,21); //Gps için gerekli  pin ataması yapılmalı
-  Serial2.begin(57600); //hmı için gerekli  pin ataması yapılmalı
+  Serial2.begin(115200); //hmı için gerekli  pin ataması yapılmalı
   
   //cpu frequency
   Serial.println(getCpuFrequencyMhz());
@@ -506,6 +557,12 @@ void setup()
   //pinMode(RA_MIN_PIN, INPUT_PULLUP);
   //pinMode(DEC_MIN_PIN, INPUT_PULLUP);
   //pinMode(FOCUS_MIN_PIN, INPUT_PULLUP);
+
+  //motor enable pins
+  pinMode(RA_ENABLE_PIN,OUTPUT);
+  pinMode(DEC_ENABLE_PIN,OUTPUT);
+  pinMode(FOCUS_ENABLE_PIN,OUTPUT);
+
 
   //çıkışları ayarla
   pinMode(OUTPUT0,OUTPUT);
@@ -524,9 +581,9 @@ void setup()
   stepperFOCUS.setEnablePin(RA_ENABLE_PIN);
 
   //PL mode settings
-  stepperRA.setPinsInverted(true,true,true);
-  stepperDEC.setPinsInverted(false,true,true);
-  stepperFOCUS.setPinsInverted(false,true,true);
+  stepperRA.setPinsInverted(true,false,true);
+  stepperDEC.setPinsInverted(false,false,true);
+  stepperFOCUS.setPinsInverted(false,false,true);
 
   //circular buffer init
   arrayBuffer.init();
@@ -548,6 +605,18 @@ void setup()
   //10 hz interrupt
   timerAlarmWrite(timer, 100000, true);
   timerAlarmEnable(timer);
+
+  //motor runner
+  //runner_loop_thread = new std::thread(runner);
+    //create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
+  xTaskCreatePinnedToCore(
+                    runner,   /* Task function. */
+                    "Task2",     /* name of task. */
+                    10000,       /* Stack size of task */
+                    NULL,        /* parameter of the task */
+                    1,           /* priority of the task */
+                    &RunnerTask,      /* Task handle to keep track of created task */
+                    1);          /* pin task to core 1 */
 
 
   //Timer1.stop();
@@ -581,10 +650,7 @@ void setup()
 
   //database
   sqlite3_initialize();
-  if (openDb("/sd/stars.db", &starsDb)){
 
-      Serial.println("Echo: Database open error");
-  }
 
 
    
@@ -740,7 +806,7 @@ if (interruptCounter > 0) {
 
 
     //is mount tracking then calculate the required RA and Dec 
-    if(mountstatus.mountTrackingType)
+    if(mountstatus.isTracking)
     {
       //stepperDEC.moveTo(bla);
       //stepperRA.moveTo(bla);
@@ -768,6 +834,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "SUN";
+          mountstatus.mountTrackingType = solar;
           break;}
         case Moon:{
           poi = planet.calculateMoonCoords(planet.getOrbitalElementsOf(Moon,Julian));
@@ -776,6 +843,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "Moon";
+          mountstatus.mountTrackingType = lunar;
           break;}
         case Mercury:
           poi = planet.calculatePlanetCoords( planet.getOrbitalElementsOf(Mercury,Julian), planet.calculateSunEqCoords( planet.getOrbitalElementsOf(Sun,Julian) ) );
@@ -784,6 +852,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "Mercury";
+          mountstatus.mountTrackingType = planetary;
           break;
         case Venus:
           poi = planet.calculatePlanetCoords( planet.getOrbitalElementsOf(Venus,Julian), planet.calculateSunEqCoords( planet.getOrbitalElementsOf(Sun,Julian) ) );
@@ -792,6 +861,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "Venus";
+          mountstatus.mountTrackingType = planetary;
           break;
         case Mars:
           poi = planet.calculatePlanetCoords( planet.getOrbitalElementsOf(Mars,Julian), planet.calculateSunEqCoords( planet.getOrbitalElementsOf(Sun,Julian) ) );
@@ -800,6 +870,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "Mars";
+          mountstatus.mountTrackingType = planetary;
           break;
         case Jupiter:
           poi = planet.calculatePlanetCoords( planet.getOrbitalElementsOf(Jupiter,Julian), planet.calculateSunEqCoords( planet.getOrbitalElementsOf(Sun,Julian) ) );
@@ -808,6 +879,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "Jupiter";
+          mountstatus.mountTrackingType = planetary;
           break;
         case Saturn:
           poi = planet.calculatePlanetCoords( planet.getOrbitalElementsOf(Saturn,Julian), planet.calculateSunEqCoords( planet.getOrbitalElementsOf(Sun,Julian) ) );
@@ -816,6 +888,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "Saturn";
+          mountstatus.mountTrackingType = planetary;
           break;
         case Uranus:
           poi = planet.calculatePlanetCoords( planet.getOrbitalElementsOf(Uranus,Julian), planet.calculateSunEqCoords( planet.getOrbitalElementsOf(Sun,Julian) ) );
@@ -824,6 +897,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "Uranus";
+          mountstatus.mountTrackingType = planetary;
           break;
         case Neptune:
           poi = planet.calculatePlanetCoords( planet.getOrbitalElementsOf(Neptune,Julian), planet.calculateSunEqCoords( planet.getOrbitalElementsOf(Sun,Julian) ) );
@@ -832,6 +906,7 @@ if (interruptCounter > 0) {
           observingobject.objRA = poi.x/pi*12;
           observingobject.objDEC = poi.y/pi*180;
           observingobject.name = "Neptune";
+          mountstatus.mountTrackingType = planetary;
           break;
         case Pluto:
           //not implemented yet
@@ -839,6 +914,7 @@ if (interruptCounter > 0) {
         default: //all other situations including deep sky objects ansd stars
           observingobject.LHA = algorithms.calculateLocalHA(mountstatus.LMST.rawtime,observingobject.objRA);
           observingobject.LDEC = algorithms.calculateLocalDEC(mountstatus.currentLat,observingobject.objDEC);
+          mountstatus.mountTrackingType = stellar;
           
           break;
 
@@ -931,7 +1007,7 @@ if (interruptCounter > 0) {
   //step motorları koştur
   //motor driving 
   //we have to do it in timer interrupt
-  runner();
+  //runner();
 
   //ui driving
   //user interface mainloop 
@@ -939,11 +1015,24 @@ if (interruptCounter > 0) {
 
 }
 
-void runner(){
+void runner( void * pvParameters){
 
     //error control have to be done
-    stepperRA.run();
-    stepperDEC.run();
-    stepperFOCUS.run();
+    while(true)
+    { //run endlessly
+    //Serial.print("rr\n");
+    
+      stepperRA.run();
+      stepperDEC.run();
+      stepperFOCUS.run();
+      
+
+    }
 
 } 
+
+void calculatePrisms(){
+
+  //interrupt driven pulser for tenth of second calculations
+
+}

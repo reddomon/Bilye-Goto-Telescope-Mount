@@ -55,7 +55,7 @@ void wifi_init() {
           //try connection 5 times in every 1000ms
           int connectTry = 0;
           while (!WiFi.isConnected()) {
-            //SERIAL_ERROR_MSG("Unable to connect to WiFi");
+            //("Unable to connect to WiFi");
             delay(1000);
             connectTry++;
             if(connectTry>5) break;
@@ -64,13 +64,13 @@ void wifi_init() {
           delay(10);
 
           if (!MDNS.begin(WIFI_HOSTNAME)) {
-              //SERIAL_ERROR_MSG("Unable to start mDNS with hostname '" WIFI_HOSTNAME "', restarting.");
+              //("Unable to start mDNS with hostname '" WIFI_HOSTNAME "', restarting.");
               delay(5000);
           }
 
           MDNS.addService("http", "tcp", 80);
 
-          if(WiFi.isConnected()) ;//SERIAL_ECHOLNPAIR("Successfully connected to WiFi with SSID '" WIFI_SSID "', hostname: '" WIFI_HOSTNAME "', IP address: ", WiFi.localIP().toString().c_str());
+          if(WiFi.isConnected()) ;//("Successfully connected to WiFi with SSID '" WIFI_SSID "', hostname: '" WIFI_HOSTNAME "', IP address: ", WiFi.localIP().toString().c_str());
 
 
           break;

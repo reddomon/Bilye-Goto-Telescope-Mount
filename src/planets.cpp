@@ -234,8 +234,8 @@ Point Planet::calculateMoonCoords(OrbitalElements elements){
         double x = elements.a * ( cos(E*pi/180) - elements.e);
         double y = elements.a* sqrt(1-elements.e*elements.e)* sin(E*pi/180);
 
-        Serial.println(x,16);
-        Serial.println(y,16);
+        //Serial.println(x,16);
+        //Serial.println(y,16);
 
         double r = sqrt(x*x+y*y);
         double v = atan2(y,x);
@@ -249,18 +249,18 @@ Point Planet::calculateMoonCoords(OrbitalElements elements){
         //double lon = atan2(yeclip,xeclip);
         //double lat = atan2(zeclip,sqrt(xeclip*xeclip + yeclip*yeclip ));
         //double r = sqrt( xeclip*xeclip + yeclip*yeclip + zeclip*zeclip );
-        Serial.println(xeclip,16);
-        Serial.println(yeclip,16);
-        Serial.println(zeclip,16);
-        Serial.println("-------------");
+        //Serial.println(xeclip,16);
+        //Serial.println(yeclip,16);
+        //Serial.println(zeclip,16);
+        //Serial.println("-------------");
 
         double xequat = xeclip;
         double yequat = yeclip * cos(elements.oblecl*pi/180) - zeclip * sin(elements.oblecl*pi/180);
         double zequat = yeclip * sin(elements.oblecl*pi/180) + zeclip * cos(elements.oblecl*pi/180);
 
-        Serial.println(xequat,16);
-        Serial.println(yequat,16);
-        Serial.println(zequat,16);
+        //Serial.println(xequat,16);
+        //Serial.println(yequat,16);
+        //Serial.println(zequat,16);
         Point RADEC;
         RADEC.x   = atan2(yequat, xequat ); //degree to HA
         RADEC.y = atan2(zequat, sqrt( xequat*xequat + yequat*yequat) );
@@ -311,7 +311,7 @@ Point Planet::calculateSunCoords(OrbitalElements elements){
            
 }
 
-//SUN's eq coords. Required for offetting planets orbits from heiocentric to geocentric
+//SUN's eq coords. Required for offsetting planets orbits from heiocentric to geocentric
 Point Planet::calculateSunEqCoords(OrbitalElements elements){
 
         //Sun's mean longitude

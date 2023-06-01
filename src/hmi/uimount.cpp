@@ -225,7 +225,12 @@ void UImount::setObservationPageVariables(const char* name,
 										 const char * gmt,
 										const char* lt,
 										const char*gmst,
-										const char* lmst){
+										const char* lmst,
+										const char* ldate,
+										const char* lat,
+									 	const char*lon,
+									 	const char *alt,
+										 int trackingtype){
 											
 					objectName.setText(name);
 					objectInfo.setText(info);
@@ -236,6 +241,13 @@ void UImount::setObservationPageVariables(const char* name,
 					objectLT.setText(lt);
 					objectGMST.setText(gmst);
 					objectLMST.setText(lmst);
+					date.setText(ldate);
+					mountLat.setText(lat);
+					mountLon.setText(lon);
+					mountAlt.setText(alt);
+					tracktype.setValue(trackingtype);
+					
+					
 
 
 
